@@ -225,7 +225,6 @@ async fn delete_verefiacation_data(username: &str, uuid: &str) -> Result<(), Ver
     if UserSRepository::is_username_free(username.to_string()).await {
         return Err(VerfyEmailError::WrongVerfyKey);
     }
-    println!("a");
     if UserSRepository::from_username(username.to_string(), Some(true))
         .await
         .is_some()
@@ -237,7 +236,6 @@ async fn delete_verefiacation_data(username: &str, uuid: &str) -> Result<(), Ver
         .fetch_one(&db())
         .await
     {
-        println!("sdfgh");
         let username_from_db: String = row.get("username");
         if username != username_from_db {
             return Err(VerfyEmailError::WrongVerfyKey);
@@ -250,6 +248,5 @@ async fn delete_verefiacation_data(username: &str, uuid: &str) -> Result<(), Ver
             .unwrap();
         return Ok(());
     }
-    println!("w");
     Err(VerfyEmailError::WrongVerfyKey)
 }

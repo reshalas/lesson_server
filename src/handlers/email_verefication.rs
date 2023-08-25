@@ -19,10 +19,17 @@ pub async fn verfy(args: Path<(String, String)>) -> impl Responder {
 }
 
 fn build_error_page(error: VerfyEmailError, action: Action) -> String {
-    match error {
+    format!("
+    <head>
+        <meta charset=\"UTF-8\">
+    </head>
+    <body>{}</body>", match error {
         VerfyEmailError::EmailAlreadyVerfied=>{match action {
             Action::Verfy=>format!(
             "
+
+            <meta charset=\"UTF-8\">
+
             <div>
                 <h1>Уже усе активировано, не парься!</h1>
             </div>"),
@@ -43,10 +50,15 @@ fn build_error_page(error: VerfyEmailError, action: Action) -> String {
                     Если от тебя будет очень много помощи, то у тебя будет нихилый такой шанс попасть в нашу команду разработчиков.
                 </p>
             </div>", get_company_email())
-    }
+    })
 }
 
 fn build_succes_page(action: Action) -> String {
+    format!("
+    <head>
+        <meta charset=\"UTF-8\">
+    </head>
+    <body>{}</body>",
     match action {
         Action::Verfy => format!(
             "<div>
@@ -60,7 +72,7 @@ fn build_succes_page(action: Action) -> String {
             <h1>Запрос на регистрацию успешно заблокирован!</h1>
             <p> Но все же если ты учишься в школе, обрати внимание <a href=\"{}\">на нащ сайт</a></p>
         </div>", path_to_frontend()),
-    }
+    })
 }
 
 fn path_to_frontend() -> String {
