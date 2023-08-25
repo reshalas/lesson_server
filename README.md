@@ -15,6 +15,7 @@ DATABASE_URL=путь_базы_данных
 PORT=порт
 EMAIL_ADDRES=email_аддрес_компании
 SMTP_KEY=апи_ключ_к_смтп
+PATH_TO_FRONTEND=путь_к_вашему_сайту
 ```
 
 
