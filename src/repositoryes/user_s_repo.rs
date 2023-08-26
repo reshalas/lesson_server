@@ -1,10 +1,12 @@
+use std::str::FromStr;
+
 use super::{db, generate_uuid, UserSRepository};
 use crate::types::{
     dto::{SingDto, UserDTO},
     errors::VerfyEmailError,
     User,
 };
-use sqlx::{postgres::PgQueryResult, Error, Row};
+use sqlx::{postgres::PgQueryResult, types::Uuid, Error, Row};
 
 impl UserSRepository {
     async fn fill_users_table(new_user: &UserDTO) -> Result<(), Error> {
@@ -40,9 +42,9 @@ impl UserSRepository {
         match sqlx::query(
             "insert into email_vereficator (username, id, registration_data) values($1, $2, $3);",
         )
+        .bind(new_user.username.clone())
         .bind(uuid)
-        .bind(new_user.location_data.country.clone())
-        .bind(new_user.location_data.city.clone())
+        .bind(chrono::Utc::now().date_naive())
         .execute(&db())
         .await
         {
@@ -60,12 +62,9 @@ impl UserSRepository {
                 .await
                 .unwrap();
             return Ok((
-                UserSRepository::get(&SingDto {
-                    username: new_user.username.clone(),
-                    password: new_user.password.clone(),
-                })
-                .await
-                .unwrap(),
+                UserSRepository::from_username(new_user.username.clone(), None)
+                    .await
+                    .unwrap(),
                 uuid,
             ));
         }
@@ -89,11 +88,7 @@ impl UserSRepository {
     pub async fn cancel_verefication(uuid: &str, username: &str) -> Result<(), VerfyEmailError> {
         match delete_verefiacation_data(username, uuid).await {
             Ok(_) => {
-                sqlx::query("delete from users where username=$1;")
-                    .bind(username)
-                    .execute(&db())
-                    .await
-                    .unwrap();
+                delete_user(username).await.unwrap();
                 Ok(())
             }
             Err(err) => Err(err),
@@ -102,6 +97,19 @@ impl UserSRepository {
 
     pub async fn get(sing_data: &SingDto) -> Option<User> {
         match UserSRepository::from_username(sing_data.username.clone(), Some(true)).await {
+            Some(user) => {
+                if user.password() == sing_data.password {
+                    Some(user)
+                } else {
+                    None
+                }
+            }
+            None => None,
+        }
+    }
+
+    pub async fn get_anyway(sing_data: &SingDto) -> Option<User> {
+        match UserSRepository::from_username(sing_data.username.clone(), None).await {
             Some(user) => {
                 if user.password() == sing_data.password {
                     Some(user)
@@ -140,9 +148,9 @@ impl UserSRepository {
 
     pub async fn from_username(username: String, active: Option<bool>) -> Option<User> {
         let sql = format!(
-            "select * from users join location_data on owner=username where username = $1{};",
+            "select * from users join location_data on owner=username where username = $1 {};",
             match active {
-                Some(val) => format!(", is_active={}", val),
+                Some(val) => format!("and is_active={}", val),
                 None => String::new(),
             }
         );
@@ -201,7 +209,19 @@ impl UserSRepository {
     }
 }
 
+async fn delete_user(username: &str) -> Result<PgQueryResult, Error> {
+    sqlx::query("delete from location_data where owner=$1;")
+        .bind(username)
+        .execute(&db())
+        .await?;
+    sqlx::query("delete from users where username=$1;")
+        .bind(username)
+        .execute(&db())
+        .await
+}
+
 async fn delete_verefiacation_data(username: &str, uuid: &str) -> Result<(), VerfyEmailError> {
+    let uuid = Uuid::from_str(uuid).unwrap();
     if UserSRepository::is_username_free(username.to_string()).await {
         return Err(VerfyEmailError::WrongVerfyKey);
     }
@@ -220,6 +240,7 @@ async fn delete_verefiacation_data(username: &str, uuid: &str) -> Result<(), Ver
         if username != username_from_db {
             return Err(VerfyEmailError::WrongVerfyKey);
         }
+
         sqlx::query("delete from email_vereficator where id=$1;")
             .bind(uuid)
             .execute(&db())

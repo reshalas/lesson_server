@@ -7,7 +7,7 @@ use sqlx::{postgres::PgRow, prelude::*, FromRow};
 
 impl User {
     async fn refresh(&mut self) {
-        *self = UserSRepository::get(&SingDto {
+        *self = UserSRepository::get_anyway(&SingDto {
             username: self.username(),
             password: self.password.clone(),
         })
